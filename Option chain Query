@@ -1,0 +1,58 @@
+-- US Option CHAIN
+let
+    Source = Web.Page(Web.Contents("https://finance.yahoo.com/quote/"&Table2()&"/options?straddle=true")),
+    Data0 = Source{0}[Data],
+    #"Changed Type2" = Table.TransformColumnTypes(Data0,{{"Last Price", type text}, {"Change", type text}, {"% Change", type text}, {"Volume", type text}, {"Open Interest", type text}, {"Strike", type number}, {"Last Price2", type text}, {"Change2", type text}, {"% Change2", type text}, {"Volume2", type text}, {"Open Interest2", type text}}),
+    #"Changed Type" = Table.TransformColumnTypes(#"Changed Type2",{{"Last Price", type text}, {"Change", type text}, {"% Change", type text}, {"Volume", type text}, {"Open Interest", type text}, {"Strike", Int64.Type}, {"Last Price2", type text}, {"Change2", type text}, {"% Change2", type text}, {"Volume2", type text}, {"Open Interest2", type text}}),
+    #"Reordered Columns" = Table.ReorderColumns(#"Changed Type",{"Change", "% Change", "Volume", "Open Interest", "Last Price", "Strike", "Last Price2", "Change2", "% Change2", "Volume2", "Open Interest2"}),
+    #"Renamed Columns" = Table.RenameColumns(#"Reordered Columns",{{"Last Price", "Call Last Price"}, {"Open Interest", "Call Open Interest"}, {"Volume", "Call Volume"}, {"% Change", "Call LTP % Change"}}),
+    #"Reordered Columns1" = Table.ReorderColumns(#"Renamed Columns",{"Call Volume", "Call Open Interest", "Call LTP % Change", "Change", "Call Last Price", "Strike", "Last Price2", "Change2", "% Change2", "Volume2", "Open Interest2"}),
+    #"Renamed Columns1" = Table.RenameColumns(#"Reordered Columns1",{{"Change", "Call PriceChange"}, {"Call LTP % Change", "Call Price % Change"}}),
+    #"Reordered Columns2" = Table.ReorderColumns(#"Renamed Columns1",{"Call Open Interest", "Call Volume", "Call Price % Change", "Call PriceChange", "Call Last Price", "Strike", "Last Price2", "Change2", "% Change2", "Volume2", "Open Interest2"}),
+    #"Renamed Columns2" = Table.RenameColumns(#"Reordered Columns2",{{"Last Price2", "Put LTP"}, {"Change2", "Put PChg"}, {"% Change2", "Put P % Chg"}, {"Volume2", "Put Vol"}, {"Open Interest2", "Put OI"}, {"Call Open Interest", "Call OI"}, {"Call Volume", "Call Vol"}, {"Call Price % Change", "Call P % Chg"}, {"Call PriceChange", "Call P Chg"}, {"Call Last Price", "Call LTP"}}),
+    #"Replaced Value" = Table.ReplaceValue(#"Renamed Columns2","-",0,Replacer.ReplaceValue,{"Call Vol", "Call P % Chg", "Call P Chg", "Call LTP", "Strike", "Put LTP", "Put PChg", "Put P % Chg", "Put Vol", "Put OI"}),
+    #"Changed Type1" = Table.TransformColumnTypes(#"Replaced Value",{{"Call OI", Int64.Type}, {"Call Vol", Int64.Type}, {"Put Vol", Int64.Type}, {"Put OI", Int64.Type}, {"Call P Chg", type number}, {"Call LTP", type number}, {"Strike", type number}, {"Put LTP", type number}, {"Put PChg", type number}, {"Call P % Chg", Percentage.Type}, {"Put P % Chg", Percentage.Type}})
+in
+    #"Changed Type1"
+    
+    
+    
+    ---- India OPT CHAIN
+    
+    let
+    cookiestr = cookies(),
+    Source = Json.Document(Web.Contents("https://www.nseindia.com/api/option-chain-"&Instrument()&"?symbol="&Symbols(),[Headers=[#"Accept-Encoding"="gzip, deflate", #"Accept-Language"="en-US,en;q=0.9", #"user-agent"="Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/83.0.4103.106 Safari/537.36", cookie="cookiestr"]])),
+    records = Source[records],
+    data = records[data],
+    #"Converted to Table" = Table.FromList(data, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
+    #"Expanded Column1" = Table.ExpandRecordColumn(#"Converted to Table", "Column1", {"CE", "expiryDate", "PE", "strikePrice"}, {"CE", "expiryDate", "PE", "strikePrice"}),
+    #"Expanded PE" = Table.ExpandRecordColumn(#"Expanded Column1", "PE", {"strikePrice", "expiryDate", "underlying", "identifier", "openInterest", "changeinOpenInterest", "pchangeinOpenInterest", "totalTradedVolume", "impliedVolatility", "lastPrice", "change", "pChange", "totalBuyQuantity", "totalSellQuantity", "bidQty", "bidprice", "askQty", "askPrice", "underlyingValue"}, {"PE.strikePrice", "PE.expiryDate", "PE.underlying", "PE.identifier", "PE.openInterest", "PE.changeinOpenInterest", "PE.pchangeinOpenInterest", "PE.totalTradedVolume", "PE.impliedVolatility", "PE.lastPrice", "PE.change", "PE.pChange", "PE.totalBuyQuantity", "PE.totalSellQuantity", "PE.bidQty", "PE.bidprice", "PE.askQty", "PE.askPrice", "PE.underlyingValue"}),
+    #"Expanded CE" = Table.ExpandRecordColumn(#"Expanded PE", "CE", {"strikePrice", "expiryDate", "underlying", "identifier", "openInterest", "changeinOpenInterest", "pchangeinOpenInterest", "totalTradedVolume", "impliedVolatility", "lastPrice", "change", "pChange", "totalBuyQuantity", "totalSellQuantity", "bidQty", "bidprice", "askQty", "askPrice", "underlyingValue"}, {"CE.strikePrice", "CE.expiryDate", "CE.underlying", "CE.identifier", "CE.openInterest", "CE.changeinOpenInterest", "CE.pchangeinOpenInterest", "CE.totalTradedVolume", "CE.impliedVolatility", "CE.lastPrice", "CE.change", "CE.pChange", "CE.totalBuyQuantity", "CE.totalSellQuantity", "CE.bidQty", "CE.bidprice", "CE.askQty", "CE.askPrice", "CE.underlyingValue"}),
+    #"Filtered Rows" = Table.SelectRows(#"Expanded CE", each ([expiryDate] = Expiry())),
+    #"Removed Columns" = Table.RemoveColumns(#"Filtered Rows",{"CE.expiryDate", "CE.identifier", "CE.underlying", "CE.totalBuyQuantity", "CE.totalSellQuantity", "CE.bidQty", "CE.askQty", "CE.underlyingValue", "PE.expiryDate", "PE.identifier",  "PE.totalBuyQuantity", "PE.totalSellQuantity", "PE.bidQty", "PE.askQty", "PE.underlyingValue", "CE.strikePrice",  "PE.strikePrice", "PE.underlying"}),
+    #"Reordered Columns" = Table.ReorderColumns(#"Removed Columns",{"CE.openInterest", "CE.changeinOpenInterest", "CE.pchangeinOpenInterest", "CE.lastPrice", "CE.change", "CE.pChange", "CE.bidprice", "CE.askPrice", "expiryDate", "strikePrice", "PE.openInterest", "PE.changeinOpenInterest", "PE.pchangeinOpenInterest", "PE.lastPrice", "PE.change", "PE.pChange", "PE.bidprice", "PE.askPrice"}),
+    #"Renamed Columns" = Table.RenameColumns(#"Reordered Columns",{{"CE.openInterest", "Call OI"}, {"CE.changeinOpenInterest", "Call OI CHG"}, {"CE.pchangeinOpenInterest", "Call OI Per Chg"}}),
+    #"Removed Columns1" = Table.RemoveColumns(#"Renamed Columns",{"Call OI Per Chg"}),
+    #"Renamed Columns1" = Table.RenameColumns(#"Removed Columns1",{{"CE.lastPrice", "Call LTP"}, {"CE.change", "Call Price Chg"}, {"CE.pChange", "Call Price Per Chg"}, {"CE.bidprice", "Call Bid price"}, {"CE.askPrice", "Call Ask price"}}),
+    #"Reordered Columns1" = Table.ReorderColumns(#"Renamed Columns1",{"Call OI", "Call OI CHG", "Call LTP", "Call Price Chg", "Call Price Per Chg", "Call Bid price", "Call Ask price", "expiryDate", "strikePrice", "PE.askPrice", "PE.bidprice", "PE.openInterest", "PE.changeinOpenInterest", "PE.pchangeinOpenInterest", "PE.lastPrice", "PE.change", "PE.pChange"}),
+    #"Renamed Columns2" = Table.RenameColumns(#"Reordered Columns1",{{"PE.askPrice", "Put Ask Price"}}),
+    #"Reordered Columns2" = Table.ReorderColumns(#"Renamed Columns2",{"Call OI", "Call OI CHG", "Call LTP", "Call Price Chg", "Call Price Per Chg", "Call Bid price", "Call Ask price", "expiryDate", "strikePrice", "PE.bidprice", "Put Ask Price", "PE.openInterest", "PE.changeinOpenInterest", "PE.pchangeinOpenInterest", "PE.lastPrice", "PE.change", "PE.pChange"}),
+    #"Renamed Columns3" = Table.RenameColumns(#"Reordered Columns2",{{"PE.bidprice", "Put Bid price"}}),
+    #"Reordered Columns3" = Table.ReorderColumns(#"Renamed Columns3",{"Call OI", "Call OI CHG", "Call LTP", "Call Price Chg", "Call Price Per Chg", "Call Bid price", "Call Ask price", "expiryDate", "strikePrice", "Put Bid price", "Put Ask Price", "PE.lastPrice", "PE.change", "PE.pChange", "PE.changeinOpenInterest", "PE.pchangeinOpenInterest", "PE.openInterest"}),
+    #"Renamed Columns4" = Table.RenameColumns(#"Reordered Columns3",{{"PE.lastPrice", "Put LTP"}, {"PE.change", "Put Price Cgh"}, {"PE.pChange", "Put Price per Chg"}}),
+    #"Removed Columns2" = Table.RemoveColumns(#"Renamed Columns4",{"PE.pchangeinOpenInterest"}),
+    #"Renamed Columns5" = Table.RenameColumns(#"Removed Columns2",{{"PE.changeinOpenInterest", "Put OI Change"}, {"PE.openInterest", "Put OI"}, {"Call OI CHG", "Call OI Change"}, {"Call Price Chg", "Call Price Change"}, {"Put Price Cgh", "Put Price Change"}}),
+    #"Removed Columns3" = Table.RemoveColumns(#"Renamed Columns5",{"Call Bid price", "Call Ask price", "Put Bid price", "Put Ask Price"}),
+    #"Reordered Columns4" = Table.ReorderColumns(#"Removed Columns3",{"Call OI", "Call OI Change", "Call LTP", "Call Price Change", "Call Price Per Chg", "strikePrice", "Put LTP", "Put Price Change", "Put Price per Chg", "Put OI Change", "Put OI", "expiryDate"}),
+    #"Changed Type" = Table.TransformColumnTypes(#"Reordered Columns4",{{"Put Price per Chg", Percentage.Type}, {"Call Price Per Chg", Percentage.Type}}),
+    #"Removed Columns4" = Table.RemoveColumns(#"Changed Type",{"Call Price Per Chg", "Put Price per Chg"}),
+    #"Reordered Columns5" = Table.ReorderColumns(#"Removed Columns4",{"Call OI", "Call OI Change", "Call LTP", "Call Price Change", "expiryDate", "strikePrice", "Put LTP", "Put Price Change", "Put OI Change", "Put OI"}),
+    #"Renamed Columns6" = Table.RenameColumns(#"Reordered Columns5",{{"Call Price Change", "P CHG Call"}, {"Put Price Change", "P CHG Put"}, {"expiryDate", "expiry"}, {"strikePrice", "strike"}, {"CE.totalTradedVolume", "Call Vol"}, {"CE.impliedVolatility", "Call IV"}, {"PE.totalTradedVolume", "Put Vol"}, {"PE.impliedVolatility", "Put IV"}}),
+    #"Reordered Columns6" = Table.ReorderColumns(#"Renamed Columns6",{"Call IV", "Call Vol", "Call OI", "Call OI Change", "Call LTP", "P CHG Call", "expiry", "strike", "Put LTP", "P CHG Put", "Put OI Change", "Put OI", "Put Vol", "Put IV"}),
+    #"Renamed Columns7" = Table.RenameColumns(#"Reordered Columns6",{{"P CHG Call", "Call P CHG"}, {"P CHG Put", "Put P CHG"}}),
+    #"Reordered Columns7" = Table.ReorderColumns(#"Renamed Columns7",{"Call IV", "Call Vol", "Call OI", "Call OI Change", "Call LTP", "Call P CHG", "expiry", "strike", "Put LTP", "Put P CHG", "Put OI", "Put OI Change", "Put Vol", "Put IV"}),
+    #"Removed Columns5" = Table.RemoveColumns(#"Reordered Columns7",{"Call IV", "Put IV"}),
+    #"Reordered Columns8" = Table.ReorderColumns(#"Removed Columns5",{"Call Vol", "Call OI", "Call OI Change", "Call P CHG", "Call LTP", "expiry", "strike", "Put LTP", "Put P CHG", "Put OI Change", "Put OI", "Put Vol"}),
+    #"Removed Columns6" = Table.RemoveColumns(#"Reordered Columns8",{"expiry"})
+in
+    #"Removed Columns6"
